@@ -87,3 +87,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+reviews_Electronics_5.json
+datasets.json
