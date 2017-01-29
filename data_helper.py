@@ -68,6 +68,16 @@ def get_batch(bs=10, ds=100):
     for i in range(0, len(datasets), bs):
         yield datasets[i:i+bs]
 
+def get_datasets(ds=1000):
+    positives, negatives = load_datasets()
+    positive_sets = np.array([ tuple([convert_tokens(positive), np.array([1,0]).astype(np.float32)]) for positive in positives[:ds] ])
+    negative_sets = np.array([ tuple([convert_tokens(negative), np.array([0,1]).astype(np.float32)]) for negative in negatives[:ds] ])
+    datasets = np.concatenate((positive_sets, negative_sets))
+    np.random.shuffle(datasets)
+
+    return datasets
+
+
 if __name__ == '__main__':
     for batch in get_batch(bs=100, ds=1000):
         print(batch)
