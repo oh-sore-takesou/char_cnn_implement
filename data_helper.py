@@ -50,14 +50,14 @@ def convert_token(token, vocab_dict):
 def convert_tokens(tokens, sen_max=1024):
     with open('./vocab_dict.json', 'r') as f:
         vocab_dict = json.load(f)
-    vecs = np.array([convert_token(token, vocab_dict) for token in tokens])
+    vecs = np.array([convert_token(token, vocab_dict) for token in tokens]).T
     if len(tokens) == 0:
-        vecs = np.zeros(69*sen_max).reshape(sen_max, 69)
-    if len(vecs) < sen_max:
-        vecs = np.concatenate((vecs, np.zeros(69*(sen_max-len(vecs))).reshape(sen_max-len(vecs), 69)))
+        vecs = np.zeros(69*sen_max).reshape(69, sen_max)
+    if vecs.shape[1] < sen_max:
+        vecs = np.concatenate((vecs, np.zeros(69*(sen_max-vecs.shape[1])).reshape(69, sen_max-vecs.shape[1])), axis=1)
     else:
-        vecs = vecs[:sen_max]
-    return vecs.reshape(1, 1024, 69).astype(np.float32)
+        vecs = vecs[:, :sen_max]
+    return vecs.reshape(1, 69, 1024).astype(np.float32)
 
 def get_batch(bs=10, ds=100):
     positives, negatives = load_datasets()
@@ -70,12 +70,19 @@ def get_batch(bs=10, ds=100):
 
 def get_datasets(ds=1000):
     positives, negatives = load_datasets()
-    positive_sets = np.array([ tuple([convert_tokens(positive), np.array([1,0]).astype(np.float32)]) for positive in positives[:ds] ])
-    negative_sets = np.array([ tuple([convert_tokens(negative), np.array([0,1]).astype(np.float32)]) for negative in negatives[:ds] ])
+    positive_sets = np.array([ tuple([convert_tokens(positive), np.array([1,0]).astype(np.int32)]) for positive in positives[:ds] ])
+    negative_sets = np.array([ tuple([convert_tokens(negative), np.array([0,1]).astype(np.int32)]) for negative in negatives[:ds] ])
     datasets = np.concatenate((positive_sets, negative_sets))
     np.random.shuffle(datasets)
 
     return datasets
+
+def get_un_shuffled_datasets(ds=1000):
+    ds = int(ds)
+    positives, negatives = load_datasets()
+    positive_sets = np.array([ tuple([convert_tokens(positive), np.array([1,0]).astype(np.float32)]) for positive in positives[:ds] ])
+    negative_sets = np.array([ tuple([convert_tokens(negative), np.array([0,1]).astype(np.float32)]) for negative in negatives[:ds] ])
+    return [positive_sets, negative_sets]
 
 
 if __name__ == '__main__':

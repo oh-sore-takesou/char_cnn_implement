@@ -28,12 +28,36 @@ class CharCNN(Chain):
         return F.mean_squared_error(self.fwd(x, train=train), y)
 
     def fwd(self, x, train=True):
+        h1 = F.max_pooling_2d(F.relu(self.conv1(x)), (1, 3))
+        h2 = F.max_pooling_2d(F.relu(self.conv2(h1)), (1, 3))
+        h3 = F.relu(self.conv3(h2))
+        h4 = F.relu(self.conv4(h3))
+        h5 = F.relu(self.conv5(h4))
+        h6 = F.max_pooling_2d(F.relu(self.conv6(h5)), (1, 3))
+        h7 = F.dropout(F.relu(self.l1(h6)), ratio=0.5, train=train)
+        h8 = F.dropout(F.relu(self.l2(h7)), ratio=0.5, train=train)
+        y = self.l3(h8)
+        return y
+
+class Linear(Chain):
+
+    def __init__(self):
+        super(CharCNN, self).__init__(
+            l1=L.Linear(None, 2048),
+            l2=L.Linear(None, 2048),
+            l3=L.Linear(None, 2),
+        )
+
+    def __call__(self, x, y, train=True):
+        return F.mean_squared_error(self.fwd(x, train=train), y)
+
+    def fwd(self, x, train=True):
         h1 = F.max_pooling_2d(F.relu(self.conv1(x)), 3)
-        h2 = F.max_pooling_2d(F.relu(self.conv2(x)), 3)
-        h3 = F.max_pooling_2d(F.relu(self.conv3(x)), 3)
-        h4 = F.max_pooling_2d(F.relu(self.conv4(x)), 3)
-        h5 = F.max_pooling_2d(F.relu(self.conv5(x)), 3)
-        h6 = F.max_pooling_2d(F.relu(self.conv6(x)), 3)
+        h2 = F.max_pooling_2d(F.relu(self.conv2(h1)), 3)
+        h3 = F.max_pooling_2d(F.relu(self.conv3(h2)), 3)
+        h4 = F.max_pooling_2d(F.relu(self.conv4(h3)), 3)
+        h5 = F.max_pooling_2d(F.relu(self.conv5(h4)), 3)
+        h6 = F.max_pooling_2d(F.relu(self.conv6(h5)), 3)
         h7 = F.dropout(F.relu(self.l1(h6)), ratio=0.5, train=train)
         h8 = F.dropout(F.relu(self.l2(h7)), ratio=0.5, train=train)
         y = self.l3(h8)
