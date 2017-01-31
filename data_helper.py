@@ -80,8 +80,8 @@ def get_datasets(ds=1000):
 def get_un_shuffled_datasets(ds=1000):
     ds = int(ds)
     positives, negatives = load_datasets()
-    positive_sets = np.array([ tuple([convert_tokens(positive), np.array([1,0]).astype(np.float32)]) for positive in positives[:ds] ])
-    negative_sets = np.array([ tuple([convert_tokens(negative), np.array([0,1]).astype(np.float32)]) for negative in negatives[:ds] ])
+    positive_sets = np.array([ tuple([convert_tokens(positive), np.int(1)]) for positive in positives[:ds] ])
+    negative_sets = np.array([ tuple([convert_tokens(negative), np.int(0)]) for negative in negatives[:ds] ])
     return [positive_sets, negative_sets]
 
 
