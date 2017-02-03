@@ -10,47 +10,54 @@ from tqdm import tqdm
 from sys import exit
 import pickle
 
-from model import TestLinear, CharCNN
-from data_helper import get_batch, get_datasets, load_datasets, get_un_shuffled_datasets
-from eprint import s_print
+from model import CharCNN
 
+import sobamchan_utility
+utility = sobamchan_utility.Utility()
+import sobamchan_slack
+slack = sobamchan_slack.Slack()
 
 def train():
     model = CharCNN()
     optimizer = optimizers.MomentumSGD(lr=0.01, momentum=0.9)
     optimizer.setup(model)
-    bs = 10
+    bs = 128
     epoch = 100
     ds = 1000
 
     channel = None
 
-    # datasets = get_datasets(ds) # max: 190864
-    # train = datasets[:int(len(datasets)*0.8)]
-    # test = datasets[-int(len(datasets)*0.2):]
-    p_ds, n_ds = get_un_shuffled_datasets(ds=ds/2)
-    train = np.concatenate((p_ds[:int(len(p_ds)*0.8)],  n_ds[:int(len(n_ds)*0.8)]))
-    test = np.concatenate((p_ds[-int(len(p_ds)*0.2):], n_ds[-int(len(n_ds)*0.2):]))
-    N = len(train)
-    x_train = np.array([d[0] for d in train])
-    y_train = np.array([d[1] for d in train]).astype(np.int32)
+    token_dict = utility.load_json('./vocab_dict.json')
 
-    s_print('here we go', channel)
-    s_print('data size: {}'.format(ds), channel)
-    s_print('batch size: {}'.format(bs), channel)
-    s_print('epoch: {}'.format(epoch), channel)
+    datasets = utility.load_json('./datasets.json')
+    train, test = utility.separate_datasets(datasets)
+    train_each_N = min(len(train['positive']), len(train['negative']))
+    train_x = utility.np_float32([utility.np_float32(utility.convert_one_of_m_vector_char(value, token_dict, 1014)).reshape(1,1,1014) for key, values in train.items() for value in values[:train_each_N]])
+    train_y = utility.np_int32([0] * train_each_N + [1] * train_each_N)
+
+    test_each_N = min(len(test['positive']), len(test['negative']))
+    test_x = utility.np_float32([utility.np_float32(utility.convert_one_of_m_vector_char(value, token_dict, 1014)).reshape(1,1,1014) for key, values in test.items() for value in values[:test_each_N]])
+    test_y = utility.np_int32([0] * test_each_N + [1] * test_each_N)
+
+    slack.s_print('here we go', channel)
+    slack.s_print('data size: {}'.format(ds), channel)
+    slack.s_print('batch size: {}'.format(bs), channel)
+    slack.s_print('epoch: {}'.format(epoch), channel)
+
+    N = len(train_x)
+    print(N)
+
     for i in range(epoch):
-        s_print('-'*10, channel)
+        slack.s_print('-'*10, channel)
         loss_sum = 0
         eval_correct = 0
         perm = np.random.permutation(N)
-        for j in tqdm(range(0, len(train), bs)):
+        for j in tqdm(range(0, N, bs)):
             if i % 3 == 0:
                 optimizer.lr = optimizer.lr * 0.5
-            X = Variable(np.asarray(x_train[perm[j:j+bs]]))
-            Y = Variable(np.asarray(y_train[perm[j:j+bs]]))
+            X = Variable(train_x[perm[j:j+bs]])
+            Y = Variable(np.array(train_y[perm[j:j+bs]]))
             model.cleargrads()
-            # loss = model(X, Y)
             YT = model.fwd(X)
             for yt, y in zip(YT, Y):
                 if np.argmax(yt.data) == np.argmax(y.data):
@@ -59,24 +66,24 @@ def train():
             loss_sum += float(loss.data) * len(X)
             loss.backward()
             optimizer.update()
-        s_print('{} epoch done loss sum: {}'.format(i+1, loss_sum), channel)
-        s_print('{}% correct when train epoch {} done'.format(eval_correct/len(train)*100, i+1), channel)
+        slack.s_print('{} epoch done loss sum: {}'.format(i+1, loss_sum), channel)
+        slack.s_print('{}% correct when train epoch {} done'.format(eval_correct/len(train)*100/bs, i+1), channel)
 
-        # eval
-        eval_correct = 0
-        for j in tqdm(range(0, len(test), bs)):
-            X = Variable(np.array([d[0] for d in test[j:j+bs]]))
-            Y = np.array([d[1] for d in test[j:j+bs]])
-            YT = model.fwd(X, train=False)
-            for y, yt in zip(Y, YT):
-                y = np.array(y)
-                if np.argmax(y) == np.argmax(yt.data):
-                    eval_correct += 1
+    #     # eval
+    #     eval_correct = 0
+    #     for j in tqdm(range(0, len(test), bs)):
+    #         X = Variable(np.array([d[0] for d in test_x[j:j+bs]]))
+    #         Y = np.array([d[1] for d in test_y[j:j+bs]])
+    #         YT = model.fwd(X, train=False)
+    #         for y, yt in zip(Y, YT):
+    #             y = np.array(y)
+    #             if np.argmax(y) == np.argmax(yt.data):
+    #                 eval_correct += 1
 
-        s_print('{}% correct when epoch {} done'.format(eval_correct/len(test)*100, i+1), channel)
+    #     slack.s_print('{}% correct when epoch {} done'.format(eval_correct/len(test)*100, i+1), channel)
 
-        with open('./m.pkl', 'wb') as f:
-            pickle.dump(model, f)
+    #     with open('./m.pkl', 'wb') as f:
+    #         pickle.dump(model, f)
 
 if __name__ == '__main__':
     train()
