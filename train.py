@@ -9,6 +9,7 @@ from chainer.training import extensions
 from tqdm import tqdm
 from sys import exit
 import pickle
+import argparse
 
 from model import CharCNN
 
@@ -18,15 +19,21 @@ import sobamchan_slack
 utility = sobamchan_utility.Utility()
 slack = sobamchan_slack.Slack()
 
-def train():
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-e', help='epoch', default=10, type=int)
+    parser.add_argument('-b', help='batch size', default=128, type=int)
+    parser.add_argument('-s', help='slack channel name', default=None, type=str)
+    return parser.parse_args()
+
+def train(args):
     model = CharCNN()
     optimizer = optimizers.MomentumSGD(lr=0.01, momentum=0.9)
     optimizer.setup(model)
-    bs = 128
-    epoch = 100
-    ds = 1000
+    bs = args.b
+    epoch = args.e
+    channel = args.s
 
-    channel = None
 
     token_dict = utility.load_json('./vocab_dict.json')
 
@@ -41,7 +48,6 @@ def train():
     test_y = utility.np_int32([0] * test_each_N + [1] * test_each_N)
 
     slack.s_print('here we go', channel)
-    slack.s_print('data size: {}'.format(ds), channel)
     slack.s_print('batch size: {}'.format(bs), channel)
     slack.s_print('epoch: {}'.format(epoch), channel)
 
@@ -69,8 +75,8 @@ def train():
             loss_sum += float(loss.data) * len(X)
             loss.backward()
             optimizer.update()
-        slack.s_print('{} epoch done loss sum: {}'.format(i+1, loss_sum), channel)
-        slack.s_print('{}% correct when train epoch {} done'.format(eval_correct/len(train)*100/bs, i+1), channel)
+        slack.s_print('{} epoch done loss sum: {}'.format(i+1, loss_sum/len(train_x)/bs), channel)
+        slack.s_print('{}% correct when train epoch {} done'.format(eval_correct/len(train_x)/bs*100, i+1), channel)
 
         # eval
         eval_correct = 0
@@ -87,10 +93,11 @@ def train():
                 if np.argmax(y) == np.argmax(yt.data):
                     eval_correct += 1
 
-        slack.s_print('{}% correct when epoch {} done'.format(eval_correct/len(test)/bs*100, i+1), channel)
+        slack.s_print('{}% correct when epoch {} done'.format(eval_correct/len(test_x)/bs*100, i+1), channel)
 
     #     with open('./m.pkl', 'wb') as f:
     #         pickle.dump(model, f)
 
 if __name__ == '__main__':
-    train()
+    args = get_args()
+    train(args)
